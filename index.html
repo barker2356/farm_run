@@ -1,0 +1,566 @@
+<!-- Chosen Palette: OSRS Natural (Warm Neutrals, Earthy Greens, UI Browns) -->
+<!-- Application Structure Plan: 
+    - REFACTOR: Fixed Route Numbering.
+    - Logic Update: Implemented a separate 'stepCounter' in the rendering loop. 
+      Headers (Phase 1, Bank Stop, Phase 2) are now ignored by the counter, so "Lumbridge" correctly starts as Step 1.
+-->
+<!-- Visualization & Content Choices: 
+    - No graphical changes, just logic correction for the numbering bubbles.
+-->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barker's Farm Run</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Cinzel:wght@700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Cinzel', serif;
+        }
+
+        .mode-btn.active {
+            background-color: #3d5c25;
+            color: white;
+            border-color: #2e461b;
+        }
+        .mode-btn {
+            background-color: white;
+            color: #3d5c25;
+            border: 2px solid #3d5c25;
+        }
+
+        .phase-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2rem 0;
+            color: #78350f;
+            font-weight: bold;
+            font-family: 'Cinzel', serif;
+            font-size: 1.25rem;
+            background-color: #fef3c7;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #d97706;
+            position: relative;
+            z-index: 10; /* Ensures it sits on top if needed */
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+        }
+        
+        .step-check:checked + div {
+            opacity: 0.5;
+            text-decoration: line-through;
+            background-color: #e5e7eb;
+        }
+        
+        .item-row.checked {
+            opacity: 0.5;
+            text-decoration: line-through;
+            background-color: #e5e7eb;
+        }
+
+        /* Table Styling */
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .ref-table th {
+            background-color: #3d5c25;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .ref-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .ref-table tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="bg-[#f0f0eb]">
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-[#3e2723] mb-2">Barker's Farm Run (No Bean Spouts)</h1>
+            <p class="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+                7 Wood • 7 Fruit • 3 Calquat • 5 Hardwood • 9 Herbs
+            </p>
+
+            <div class="flex justify-center flex-wrap gap-4 mb-4">
+                <button onclick="switchMode('herb')" id="btn-herb" class="mode-btn active px-6 py-2 rounded-full font-bold transition-colors">
+                    🌿 Herb Run
+                </button>
+                <button onclick="switchMode('tree')" id="btn-tree" class="mode-btn px-6 py-2 rounded-full font-bold transition-colors">
+                    🌳 Ultimate Tree Run
+                </button>
+                <button onclick="switchMode('reference')" id="btn-ref" class="mode-btn px-6 py-2 rounded-full font-bold transition-colors">
+                    📘 Reference & Levels
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Sidebar -->
+            <div class="lg:col-span-4 space-y-8">
+                
+                <!-- Inventory / Tips Container -->
+                <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-[#3d5c25]">
+                    <h2 class="text-2xl font-bold mb-3 text-[#3d5c25]" id="prep-title">Herb Inventory Checklist</h2>
+                    <!-- Inventory Container -->
+                    <div id="inventory-container" class="space-y-4">
+                        <!-- JS will inject lists here -->
+                    </div>
+                </div>
+
+                <!-- Stats / Analysis Container -->
+                <div class="bg-white p-6 rounded-lg shadow-md border-t-4 border-[#5d4037]" id="stats-panel">
+                    <h2 class="text-2xl font-bold mb-3 text-[#5d4037]" id="analysis-title">Yield Analysis</h2>
+                    
+                    <div id="herb-controls" class="flex flex-col space-y-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Farming Level</label>
+                            <input type="range" min="1" max="99" value="85" class="w-full h-2 bg-gray-200 rounded-lg cursor-pointer" id="level-slider" oninput="updateStats()">
+                            <span id="level-val" class="text-sm font-bold text-[#3d5c25]">85</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Compost</label>
+                            <select id="compost-select" onchange="updateStats()" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <option value="ultra">Ultracompost</option>
+                                <option value="super">Supercompost</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="tree-controls" class="hidden flex flex-col space-y-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Tree Tier</label>
+                            <select id="tree-tier-select" onchange="updateStats()" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <option value="mid">Willow / Papaya / Teak</option>
+                                <option value="high">Maple / Palm / Mahogany</option>
+                                <option value="elite">Yew / Dragonfruit / Mahogany</option>
+                                <option value="max">Magic / Dragonfruit / Mahogany</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" id="chart-wrapper">
+                        <canvas id="yieldChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route / Reference Main Area -->
+            <div class="lg:col-span-8">
+                <div class="bg-white p-8 rounded-lg shadow-lg min-h-screen">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-[#2e3b2b]" id="route-title">The Route</h2>
+                        <div class="text-right" id="progress-container">
+                            <span class="block text-sm text-gray-500">Progress</span>
+                            <span class="text-xl font-bold text-[#3d5c25]" id="progress-text">0%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-8" id="progress-bar-container">
+                        <div class="bg-[#3d5c25] h-2.5 rounded-full transition-all duration-500" style="width: 0%" id="progress-bar"></div>
+                    </div>
+
+                    <!-- Main Content Container -->
+                    <div class="relative border-l-4 border-gray-200 ml-4 space-y-12" id="route-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data ---
+        
+        const herbInventory = [
+            { name: "Magic Secateurs" },
+            { name: "Spade" },
+            { name: "Seed Dibber" },
+            { name: "Bottomless Bucket" },
+            { name: "House Teleport" },
+            { name: "Xeric's Talisman (Optional if you have a mounted one in PoH)" },
+            { name: "Ectophial" },
+            { name: "Explorer's Ring" },
+            { name: "Ardougne Cloak" },
+            { name: "Herb Seeds (9)" },
+            { name: "Stamina Potion (Optional)" }
+        ];
+
+        const treePhase1 = [
+            { name: "Spade" },
+            { name: "Coins" },
+            { name: "House Teleport" },
+            { name: "Wood Saplings (7)" },
+            { name: "Calquat Saplings (3)" },
+            { name: "Protection Payments" }
+        ];
+
+        const treePhase2 = [
+            { name: "BANK & RE-GEAR" },
+            { name: "Spade" },
+            { name: "Crystal Teleport" },
+            { name: "Digsite Pendant" },
+            { name: "Fruit Saplings (7)" },
+            { name: "Hardwood Saplings (5)" },
+            { name: "Coins/Protection Payments" }
+        ];
+
+        const herbRoute = [
+            { id: 1, location: "Troll Stronghold", teleport: "PoH Nexus -> Stony Basalt", type: "Disease Free", desc: "Roof patch." },
+            { id: 2, location: "Weiss", teleport: "PoH Nexus -> Icy Basalt", type: "Disease Free", desc: "Run west." },
+            { id: 3, location: "Farming Guild", teleport: "Jewelry Box", type: "High Yield", desc: "West wing." },
+            { id: 4, location: "Catherby", teleport: "PoH Nexus", type: "Standard", desc: "Run east." },
+            { id: 5, location: "North Ardougne", teleport: "Cloak", type: "Standard", desc: "Teleport to farm." },
+            { id: 6, location: "South Falador", teleport: "Ring", type: "Standard", desc: "Cabbage patch." },
+            { id: 7, location: "Port Phasmatys", teleport: "Ectophial", type: "Standard", desc: "Run west." },
+            { id: 8, location: "Hosidius", teleport: "Xeric's Talisman", type: "Disease Free", desc: "Glade." },
+            { id: 9, location: "Civitas illa Fortis", teleport: "Quetzal Whistle / PoH", type: "Standard", desc: "Varlamore patch." },
+            { id: 10, location: "Harmony Island", teleport: "Harmony Is. Teleport", type: "Disease Free (Elite)", desc: "Requires Morytania Elite Diary. (Optional)" }
+        ];
+
+        const treeRoute = [
+            { header: "PHASE 1: Wood (7) & Calquat (3)" },
+            { id: 1, location: "Lumbridge", teleport: "PoH Nexus", type: "Wood (1/7)", desc: "Behind castle." },
+            { id: 2, location: "Varrock", teleport: "PoH Nexus", type: "Wood (2/7)", desc: "Castle park." },
+            { id: 3, location: "Falador", teleport: "PoH Nexus", type: "Wood (3/7)", desc: "Park." },
+            { id: 4, location: "Taverley", teleport: "Run North", type: "Wood (4/7)", desc: "Near balloon." },
+            { id: 5, location: "Gnome Stronghold", teleport: "Spirit Tree", type: "Wood (5/7)", desc: "Near Spirit Tree." },
+            { id: 6, location: "Farming Guild", teleport: "Jewelry Box", type: "Wood (6/7)", desc: "Central." },
+            { id: 7, location: "Auburnvale", teleport: "Varlamore Tele", type: "Wood (7/7)", desc: "Varlamore patch." },
+            
+            { id: 8, location: "Tai Bwo Wannai", teleport: "Scroll/Spirit Tree", type: "Calquat (1/3)", desc: "Standard patch." },
+            { id: 9, location: "Great Conch", teleport: "Varlamore Tele", type: "Calquat (2/3)", desc: "Varlamore patch." },
+            { id: 10, location: "Kastori", teleport: "Varlamore Tele", type: "Calquat (3/3)", desc: "Varlamore patch." },
+
+            { header: "BANK STOP: Tools + Fruit/Hardwood Saplings" },
+
+            { id: 11, location: "Gnome Stronghold", teleport: "Spirit Tree", type: "Fruit (1/7)", desc: "East of Spirit Tree." },
+            { id: 12, location: "Tree Gnome Village", teleport: "Spirit Tree", type: "Fruit (2/7)", desc: "Follow Elkoy." },
+            { id: 13, location: "Brimhaven", teleport: "Spirit Tree", type: "Fruit (3/7)", desc: "North." },
+            { id: 14, location: "Catherby", teleport: "PoH Nexus", type: "Fruit (4/7)", desc: "East." },
+            { id: 15, location: "Lletya", teleport: "Tele Crystal", type: "Fruit (5/7)", desc: "East." },
+            { id: 16, location: "Farming Guild", teleport: "Jewelry Box", type: "Fruit (6/7)", desc: "Palm patch." },
+            { id: 17, location: "Kastori", teleport: "Varlamore Tele", type: "Fruit (7/7)", desc: "Varlamore patch." },
+
+            { id: 18, location: "Fossil Island (1)", teleport: "Digsite Pendant", type: "Hardwood (1/5)", desc: "Verdant Valley." },
+            { id: 19, location: "Fossil Island (2)", teleport: "Run Adjacent", type: "Hardwood (2/5)", desc: "Verdant Valley." },
+            { id: 20, location: "Fossil Island (3)", teleport: "Run Adjacent", type: "Hardwood (3/5)", desc: "Verdant Valley." },
+            { id: 21, location: "Avium Savannah", teleport: "Civitas/Quetzal", type: "Hardwood (4/5)", desc: "Varlamore hardwood patch." },
+            { id: 22, location: "Anglers' Retreat", teleport: "Varlamore Tele", type: "Hardwood (5/5)", desc: "Varlamore hardwood patch." }
+        ];
+
+        // Reference Data
+        const refHerbs = [
+            { lvl: 9, name: "Guam" }, { lvl: 14, name: "Marrentill" }, { lvl: 19, name: "Tarromin" },
+            { lvl: 26, name: "Harralander" }, { lvl: 32, name: "Ranarr" }, { lvl: 38, name: "Toadflax" },
+            { lvl: 44, name: "Irit" }, { lvl: 50, name: "Avantoe" }, { lvl: 56, name: "Kwuarm" },
+            { lvl: 62, name: "Snapdragon" }, { lvl: 67, name: "Cadantine" }, { lvl: 73, name: "Lantadyme" },
+            { lvl: 79, name: "Dwarf Weed" }, { lvl: 85, name: "Torstol" }
+        ];
+
+        const refTrees = [
+            { lvl: 15, name: "Oak Tree", pay: "1 Basket of Tomatoes" },
+            { lvl: 30, name: "Willow Tree", pay: "1 Basket of Apples" },
+            { lvl: 45, name: "Maple Tree", pay: "1 Basket of Oranges" },
+            { lvl: 60, name: "Yew Tree", pay: "10 Cactus Spines" },
+            { lvl: 75, name: "Magic Tree", pay: "25 Coconuts" }
+        ];
+
+        const refFruit = [
+            { lvl: 27, name: "Apple Tree", pay: "9 Sweetcorn" },
+            { lvl: 33, name: "Banana Tree", pay: "4 Baskets of Apples" },
+            { lvl: 39, name: "Orange Tree", pay: "3 Baskets of Strawberries" },
+            { lvl: 42, name: "Curry Tree", pay: "5 Baskets of Bananas" },
+            { lvl: 51, name: "Pineapple Tree", pay: "10 Watermelon" },
+            { lvl: 57, name: "Papaya Tree", pay: "10 Pineapple" },
+            { lvl: 68, name: "Palm Tree", pay: "15 Papaya Fruit" },
+            { lvl: 81, name: "Dragonfruit Tree", pay: "15 Coconuts" }
+        ];
+
+        const refSpecial = [
+            { lvl: 35, name: "Teak (Hardwood)", pay: "15 Limpwurt Roots" },
+            { lvl: 55, name: "Mahogany (Hardwood)", pay: "25 Yanillian Hops" },
+            { lvl: 72, name: "Calquat", pay: "8 Poison Ivy Berries" },
+            { lvl: 83, name: "Spirit Tree", pay: "5 Monkey Nuts + 1 Monkey Bar + 1 Ground Suqah Tooth" },
+            { lvl: 90, name: "Redwood", pay: "6 Dragonfruit" },
+            { lvl: 85, name: "Celastrus", pay: "8 Potato Cactus" }
+        ];
+
+        // --- Logic ---
+        let currentMode = 'herb';
+        let chartInstance;
+        const invContainer = document.getElementById('inventory-container');
+        const routeContainer = document.getElementById('route-container');
+
+        function init() {
+            initChart();
+            switchMode('herb');
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn-herb').className = mode === 'herb' ? 'mode-btn active px-6 py-2 rounded-full font-bold transition-colors' : 'mode-btn px-6 py-2 rounded-full font-bold transition-colors';
+            document.getElementById('btn-tree').className = mode === 'tree' ? 'mode-btn active px-6 py-2 rounded-full font-bold transition-colors' : 'mode-btn px-6 py-2 rounded-full font-bold transition-colors';
+            document.getElementById('btn-ref').className = mode === 'reference' ? 'mode-btn active px-6 py-2 rounded-full font-bold transition-colors' : 'mode-btn px-6 py-2 rounded-full font-bold transition-colors';
+
+            invContainer.innerHTML = '';
+            
+            // Show/Hide Stats and Progress based on mode
+            const statsPanel = document.getElementById('stats-panel');
+            const progCont = document.getElementById('progress-container');
+            const progBar = document.getElementById('progress-bar-container');
+
+            if(mode === 'reference') {
+                statsPanel.classList.add('hidden');
+                progCont.classList.add('hidden');
+                progBar.classList.add('hidden');
+                document.getElementById('route-container').classList.remove('border-l-4'); // remove timeline line
+                
+                document.getElementById('prep-title').innerText = "Quick Tips";
+                const tipDiv = document.createElement('div');
+                tipDiv.className = "text-sm text-gray-700 space-y-2";
+                tipDiv.innerHTML = `
+                    <p><strong>Compost:</strong> Always use Ultracompost for best yields/protection.</p>
+                    <p><strong>Payments:</strong> Paying farmers guarantees safety. Note protection items!</p>
+                    <p><strong>Note:</strong> Items can be noted by using them on the Tool Leprechaun.</p>
+                `;
+                invContainer.appendChild(tipDiv);
+                
+                document.getElementById('route-title').innerText = "Farming Reference";
+                renderReference();
+
+            } else {
+                statsPanel.classList.remove('hidden');
+                progCont.classList.remove('hidden');
+                progBar.classList.remove('hidden');
+                document.getElementById('route-container').classList.add('border-l-4');
+
+                if (mode === 'herb') {
+                    document.getElementById('prep-title').innerText = "Herb Inventory Checklist";
+                    document.getElementById('route-title').innerText = "Herb Route";
+                    document.getElementById('herb-controls').classList.remove('hidden');
+                    document.getElementById('tree-controls').classList.add('hidden');
+                    
+                    const listDiv = document.createElement('div');
+                    listDiv.className = "bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-[500px] overflow-y-auto space-y-2";
+                    renderList(herbInventory, listDiv);
+                    invContainer.appendChild(listDiv);
+
+                    renderRoute(herbRoute);
+                } else if (mode === 'tree') {
+                    document.getElementById('prep-title').innerText = "Tree Run Inventory";
+                    document.getElementById('route-title').innerText = "Ultimate Tree Route";
+                    document.getElementById('herb-controls').classList.add('hidden');
+                    document.getElementById('tree-controls').classList.remove('hidden');
+                    
+                    // Phase 1 Box
+                    const p1Label = document.createElement('h3');
+                    p1Label.className = "font-bold text-gray-700 mb-1 mt-0 text-sm uppercase tracking-wide";
+                    p1Label.innerText = "Phase 1: Wood & Calquat";
+                    invContainer.appendChild(p1Label);
+
+                    const list1Div = document.createElement('div');
+                    list1Div.className = "bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 space-y-2";
+                    renderList(treePhase1, list1Div);
+                    invContainer.appendChild(list1Div);
+
+                    // Phase 2 Box
+                    const p2Label = document.createElement('h3');
+                    p2Label.className = "font-bold text-gray-700 mb-1 mt-2 text-sm uppercase tracking-wide";
+                    p2Label.innerText = "Phase 2: Fruit & Hardwood";
+                    invContainer.appendChild(p2Label);
+
+                    const list2Div = document.createElement('div');
+                    list2Div.className = "bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2";
+                    renderList(treePhase2, list2Div);
+                    invContainer.appendChild(list2Div);
+
+                    renderRoute(treeRoute);
+                }
+                updateStats();
+            }
+        }
+
+        function renderReference() {
+            routeContainer.innerHTML = '';
+            
+            // Herbs
+            const herbDiv = document.createElement('div');
+            herbDiv.className = "mb-8";
+            herbDiv.innerHTML = `<h3 class="text-xl font-bold text-[#3d5c25] mb-2">🌿 Herbs</h3>`;
+            const herbTable = createTable(['Level', 'Herb Name'], refHerbs, false);
+            herbDiv.appendChild(herbTable);
+            routeContainer.appendChild(herbDiv);
+
+            // Wood Trees
+            const woodDiv = document.createElement('div');
+            woodDiv.className = "mb-8";
+            woodDiv.innerHTML = `<h3 class="text-xl font-bold text-[#3d5c25] mb-2">🌲 Wood Trees</h3>`;
+            const woodTable = createTable(['Level', 'Tree', 'Protection Payment'], refTrees, true);
+            woodDiv.appendChild(woodTable);
+            routeContainer.appendChild(woodDiv);
+
+            // Fruit Trees
+            const fruitDiv = document.createElement('div');
+            fruitDiv.className = "mb-8";
+            fruitDiv.innerHTML = `<h3 class="text-xl font-bold text-[#3d5c25] mb-2">🍎 Fruit Trees</h3>`;
+            const fruitTable = createTable(['Level', 'Tree', 'Protection Payment'], refFruit, true);
+            fruitDiv.appendChild(fruitTable);
+            routeContainer.appendChild(fruitDiv);
+
+            // Special Trees
+            const specDiv = document.createElement('div');
+            specDiv.className = "mb-8";
+            specDiv.innerHTML = `<h3 class="text-xl font-bold text-[#3d5c25] mb-2">🌴 Hardwood & Special</h3>`;
+            const specTable = createTable(['Level', 'Tree', 'Protection Payment'], refSpecial, true);
+            specDiv.appendChild(specTable);
+            routeContainer.appendChild(specDiv);
+        }
+
+        function createTable(headers, data, showPayment) {
+            const table = document.createElement('table');
+            table.className = "ref-table";
+            
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headers.forEach(h => {
+                const th = document.createElement('th');
+                th.innerText = h;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${item.lvl}</td><td>${item.name}</td>${showPayment ? `<td>${item.pay}</td>` : ''}`;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            return table;
+        }
+
+        function renderList(items, container) {
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'item-row flex items-center p-3 bg-white rounded border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors shadow-sm';
+                row.innerHTML = `<span class="text-sm font-semibold text-gray-800">${item.name}</span>`;
+                row.onclick = () => row.classList.toggle('checked');
+                container.appendChild(row);
+            });
+        }
+
+        function renderRoute(data) {
+            routeContainer.innerHTML = '';
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-text').innerText = '0%';
+            
+            let stepCount = 0; // New counter ensuring consecutive numbering for steps only
+
+            data.forEach((step, index) => {
+                if (step.header) {
+                    const header = document.createElement('div');
+                    header.className = "phase-header";
+                    header.innerText = step.header;
+                    routeContainer.appendChild(header);
+                    return;
+                }
+                
+                stepCount++; // Increment only for real steps
+
+                const stepEl = document.createElement('div');
+                stepEl.className = "mb-10 ml-6 group";
+                let typeColor = "bg-gray-100";
+                if(step.type.includes("Wood")) typeColor = "bg-green-100 text-green-800";
+                if(step.type.includes("Fruit")) typeColor = "bg-orange-100 text-orange-800";
+                if(step.type.includes("Calquat")) typeColor = "bg-yellow-100 text-yellow-800";
+                if(step.type.includes("Hardwood")) typeColor = "bg-red-100 text-red-800";
+
+                const content = `
+                    <div class="relative flex flex-col sm:flex-row items-start sm:items-center bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+                        <div class="flex-grow">
+                            <h3 class="flex items-center mb-1 text-lg font-semibold text-gray-900">${step.location} <span class="${typeColor} text-xs font-medium mr-2 px-2.5 py-0.5 rounded ml-3">${step.type}</span></h3>
+                            <div class="mb-2 text-sm text-gray-500">Via: ${step.teleport}</div>
+                            <p class="mb-2 text-gray-600 text-sm">${step.desc}</p>
+                        </div>
+                        <div class="mt-4 sm:mt-0 sm:ml-4"><input type="checkbox" class="step-check w-6 h-6 text-green-600 rounded" onchange="updateProgress()"></div>
+                    </div>`;
+                stepEl.innerHTML = `<span class="absolute flex items-center justify-center w-8 h-8 bg-white rounded-full -left-4 border border-gray-300 font-bold text-gray-500">${stepCount}</span>` + content;
+                routeContainer.appendChild(stepEl);
+            });
+        }
+
+        function updateProgress() {
+            const checks = document.querySelectorAll('.step-check');
+            const total = checks.length;
+            const checked = Array.from(checks).filter(c => c.checked).length;
+            const pct = Math.round((checked / total) * 100);
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('progress-text').innerText = `${pct}%`;
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('yieldChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Val', data: [], borderWidth: 1 }] },
+                options: { maintainAspectRatio: false, responsive: true, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        function updateStats() {
+            if (currentMode === 'herb') {
+                const level = parseInt(document.getElementById('level-slider').value);
+                let base = 6 + (level/20);
+                const compost = document.getElementById('compost-select').value;
+                if(compost === 'ultra') base += 2; else base += 1;
+                chartInstance.data.labels = ['Disease Free (4)', 'Standard (6)'];
+                chartInstance.data.datasets[0].label = 'Herbs';
+                chartInstance.data.datasets[0].data = [(4*base).toFixed(1), (6*base*0.9).toFixed(1)];
+                chartInstance.data.datasets[0].backgroundColor = ['#4ade80', '#fbbf24'];
+            } else if (currentMode === 'tree') {
+                const tier = document.getElementById('tree-tier-select').value;
+                let woodXp=1456, fruitXp=6146, hardXp=7290, calqXp=12000;
+                if(tier==='high') { woodXp=3403; fruitXp=10150; hardXp=15720; }
+                if(tier==='elite') { woodXp=7069; fruitXp=17335; hardXp=15720; }
+                if(tier==='max') { woodXp=13768; fruitXp=17335; hardXp=15720; }
+
+                chartInstance.data.labels = ['Wood (7)', 'Fruit (7)', 'Calquat (3)', 'Hardwood (5)'];
+                chartInstance.data.datasets[0].label = 'Total XP';
+                chartInstance.data.datasets[0].data = [woodXp*7, fruitXp*7, calqXp*3, hardXp*5];
+                chartInstance.data.datasets[0].backgroundColor = ['#a52a2a', '#ffa500', '#fcd34d', '#7f1d1d'];
+            }
+            chartInstance.update();
+        }
+
+        init();
+    </script>
+</body>
+</html>
