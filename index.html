@@ -1,8 +1,8 @@
 <!-- Chosen Palette: OSRS Natural (Warm Neutrals, Earthy Greens, UI Browns) + Dark Mode -->
 <!-- Application Structure Plan: 
-    - UX Update: Moved Farming Level Slider to the main Header.
-    - Layout: Header now contains all "Input" controls (Name or Slider), separating them from the "Output" (Inventory/Charts).
-    - Logic: Slider immediately updates Inventory & Charts from the top of the page.
+    - UPDATE: Overhauled the "Reference" tab Sidebar.
+    - Content: Added detailed "Pro Tips" regarding Tool Leprechaun noting, Spam Clicking, Compost mechanics, and Anima seeds.
+    - Visuals: Styled tips as distinct cards for better readability.
 -->
 <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
@@ -27,7 +27,7 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
-        h1, h2, h3 {
+        h1, h2, h3, h4 {
             font-family: 'Cinzel', serif;
         }
 
@@ -96,14 +96,14 @@
         <!-- Header -->
         <header class="mb-8 text-center relative pt-8 sm:pt-0">
             <h1 class="text-4xl font-bold text-[#3e2723] dark:text-[#e7d8c9] mb-2">Barker's Farm Run</h1>
-            <h2 class="text-lg text-gray-500 dark:text-gray-400 font-semibold mb-6">(No Bean Spouts)</h2>
+            <h2 class="text-lg text-gray-500 dark:text-gray-400 font-semibold mb-6">(No Bean Sprouts)</h2>
             
             <!-- INPUT SECTION -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 max-w-xl mx-auto mb-8 border border-gray-200 dark:border-gray-700">
                 
                 <!-- WOM Integration -->
                 <div class="flex justify-center items-center gap-2 mb-4">
-                    <input type="text" id="rsn-input" placeholder="OSRS Username" class="flex-grow px-4 py-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3d5c25]">
+                    <input type="text" id="rsn-input" placeholder="OSRS Username" class="flex-grow px-4 py-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3d5c25]" onkeypress="handleEnter(event)">
                     <button onclick="fetchStats()" class="bg-[#3d5c25] hover:bg-[#2e461b] text-white px-4 py-2 rounded font-bold transition-colors flex items-center gap-2 whitespace-nowrap">
                         Fetch Stats <div id="api-loader" class="loader"></div>
                     </button>
@@ -147,7 +147,6 @@
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-t-4 border-[#3d5c25] dark:border-green-500 transition-colors">
                     <div class="flex justify-between items-center mb-3">
                         <h2 class="text-2xl font-bold text-[#3d5c25] dark:text-green-400" id="prep-title">Herb Inventory</h2>
-                        <!-- Level Badge moved to header, removed from here for cleaner look -->
                     </div>
                     <div id="inventory-container" class="space-y-4">
                         <!-- JS will inject lists here -->
@@ -230,15 +229,24 @@
             redwood: [ { lvl: 90, name: "Redwood", payQty: 6, payItem: "Dragonfruit", xp: 22450 } ]
         };
 
-        const herbInventory = [
-            { name: "Magic Secateurs" }, { name: "Spade" }, { name: "Seed Dibber" },
-            { name: "Bottomless Bucket" }, { name: "House Teleport" },
-            { name: "Xeric's Talisman (Optional if not mounted in POH)" }, { name: "Ectophial" },
-            { name: "Explorer's Ring" }, { name: "Ardougne Cloak" },
-            { name: "Herb Seeds (9)" }, { name: "Stamina Potion (Optional)" }
+        const HERBS = [
+            { lvl: 85, name: "Torstol" },
+            { lvl: 79, name: "Dwarf Weed" },
+            { lvl: 73, name: "Lantadyme" },
+            { lvl: 67, name: "Cadantine" },
+            { lvl: 62, name: "Snapdragon" },
+            { lvl: 56, name: "Kwuarm" },
+            { lvl: 50, name: "Avantoe" },
+            { lvl: 44, name: "Irit" },
+            { lvl: 38, name: "Toadflax" },
+            { lvl: 32, name: "Ranarr" },
+            { lvl: 26, name: "Harralander" },
+            { lvl: 19, name: "Tarromin" },
+            { lvl: 14, name: "Marrentill" },
+            { lvl: 9, name: "Guam" }
         ];
 
-        // --- WOM API Logic ---
+        // --- Logic ---
         function handleEnter(e) { if(e.key === 'Enter') fetchStats(); }
 
         async function fetchStats() {
@@ -257,7 +265,7 @@
                 document.getElementById('level-slider').value = farmLvl;
                 document.getElementById('level-val').innerText = farmLvl;
                 
-                switchMode(currentMode); // Refreshes inventory based on new level
+                switchMode(currentMode);
                 updateStats();
             } catch (err) {
                 alert("Could not fetch stats.");
@@ -266,25 +274,65 @@
             }
         }
 
-        // --- Smart Tree Logic ---
         function getBestTree(type, level) {
             const options = TREES[type];
-            return options.find(t => level >= t.lvl); // Assuming arrays are sorted Descending for selection
+            return options.find(t => level >= t.lvl); 
+        }
+
+        function getBestHerb(level) {
+            return HERBS.find(h => level >= h.lvl) || HERBS[HERBS.length-1];
+        }
+
+        function generateHerbInventory(level) {
+            const bestHerb = getBestHerb(level);
+            return [
+                { name: "Magic Secateurs" }, { name: "Spade" }, { name: "Seed Dibber" },
+                { name: "Bottomless Bucket" }, { name: "House Teleport" },
+                { name: "Xeric's Talisman (If Not Mounted)" }, { name: "Ectophial" },
+                { name: "Explorer's Ring" }, { name: "Ardougne Cloak" },
+                { name: `${bestHerb.name} Seeds (9)` }, 
+                { name: "Stamina Potion (Optional)" }
+            ];
         }
 
         function generatePhase1(level) {
             const list = [{ name: "Spade" }, { name: "Coins" }, { name: "House Teleport" }];
             
-            // Wood Trees
-            const bestWood = getBestTree('wood', level);
-            if(bestWood) {
-                list.push({ name: `${bestWood.name} Saplings (7)` });
-                list.push({ name: `Pay: ${bestWood.payQty * 7} ${bestWood.payItem} (Wood)` });
+            // Wood Trees (7) - Min Level 15 (Oak)
+            if (level >= 15) {
+                const bestWood = getBestTree('wood', level);
+                if(bestWood) {
+                    list.push({ name: `${bestWood.name} Saplings (7)` });
+                    list.push({ name: `Pay: ${bestWood.payQty * 7} ${bestWood.payItem} (Wood)` });
+                }
+            }
+
+            // HUB FRUIT TREES (2: Stronghold + Guild) - Min Level 27 (Apple)
+            if (level >= 27) {
+                const bestFruit = getBestTree('fruit', level);
+                if(bestFruit) {
+                    list.push({ name: `${bestFruit.name} Saplings (2)` });
+                    list.push({ name: `Pay: ${bestFruit.payQty * 2} ${bestFruit.payItem} (Hub Fruit)` });
+                }
             }
 
             // Crystal (Level 74)
             if (level >= 74) {
                 list.push({ name: "Crystal Acorn (1)" });
+            }
+
+            // Celastrus (Level 85) - Guild Hub
+            if (level >= 85) {
+                const cel = TREES.celastrus[0];
+                list.push({ name: "Celastrus Sapling (1)" });
+                list.push({ name: `Pay: ${cel.payQty} ${cel.payItem}` });
+            }
+
+            // Redwood (Level 90) - Guild Hub
+            if (level >= 90) {
+                const red = TREES.redwood[0];
+                list.push({ name: "Redwood Sapling (1)" });
+                list.push({ name: `Pay: ${red.payQty} ${red.payItem}` });
             }
 
             // Calquat (Level 72)
@@ -298,30 +346,21 @@
         }
 
         function generatePhase2(level) {
+            // Check if Phase 2 is even possible
+            if (level < 27) return []; // No Fruit or Hardwood allowed
+
             const list = [
-                { name: "BANK & RE-GEAR" }, { name: "Spade" }, 
+                { name: "Spade" }, 
                 { name: "Crystal Teleport" }, { name: "Digsite Pendant" }
             ];
 
-            // Fruit Trees
-            const bestFruit = getBestTree('fruit', level);
-            if(bestFruit) {
-                list.push({ name: `${bestFruit.name} Saplings (7)` });
-                list.push({ name: `Pay: ${bestFruit.payQty * 7} ${bestFruit.payItem} (Fruit)` });
-            }
-
-            // Celastrus (Level 85)
-            if (level >= 85) {
-                const cel = TREES.celastrus[0];
-                list.push({ name: "Celastrus Sapling (1)" });
-                list.push({ name: `Pay: ${cel.payQty} ${cel.payItem}` });
-            }
-
-            // Redwood (Level 90)
-            if (level >= 90) {
-                const red = TREES.redwood[0];
-                list.push({ name: "Redwood Sapling (1)" });
-                list.push({ name: `Pay: ${red.payQty} ${red.payItem}` });
+            // Fruit Trees (5 remaining) - Min Level 27
+            if (level >= 27) {
+                const bestFruit = getBestTree('fruit', level);
+                if(bestFruit) {
+                    list.push({ name: `${bestFruit.name} Saplings (5)` });
+                    list.push({ name: `Pay: ${bestFruit.payQty * 5} ${bestFruit.payItem} (Fruit)` });
+                }
             }
 
             // Hardwood (Level 35+)
@@ -357,9 +396,8 @@
             currentFarmingLevel = parseInt(document.getElementById('level-slider').value);
             document.getElementById('level-val').innerText = currentFarmingLevel;
             
-            // Re-render inventory if in Tree mode to update Smart Payments instantly
-            if(currentMode === 'tree') {
-                switchMode('tree');
+            if(currentMode === 'tree' || currentMode === 'herb') {
+                switchMode(currentMode); 
             } else {
                 updateStats();
             }
@@ -385,8 +423,31 @@
                 progCont.classList.add('hidden');
                 progBar.classList.add('hidden');
                 routeCont.classList.remove('border-l-4'); 
+                
                 document.getElementById('prep-title').innerText = "Quick Tips";
-                invContainer.innerHTML = `<div class='text-sm text-gray-700 dark:text-gray-300 space-y-2'><p>Compost: Ultracompost.</p><p>Note items at Leprechaun.</p></div>`;
+                
+                // Detailed Tips
+                const tipsHTML = `
+                    <div class="space-y-4">
+                        <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <h4 class="font-bold text-green-800 dark:text-green-300 mb-1 flex items-center">📝 Note Your Crops</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300">Use harvest (herbs, produce, logs) on the <strong>Tool Leprechaun</strong> to note them. Essential for long runs!</p>
+                        </div>
+                        <div class="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                            <h4 class="font-bold text-orange-800 dark:text-orange-300 mb-1 flex items-center">🛡️ Protection vs. Compost</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300">Paying the farmer guarantees the crop won't die. If you pay, you don't <em>need</em> compost, but <strong>Ultracompost</strong> still increases harvest yield.</p>
+                        </div>
+                        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <h4 class="font-bold text-blue-800 dark:text-blue-300 mb-1 flex items-center">⚡ Speed Harvest</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300"><strong>Spam click</strong> herb patches to harvest faster. Clean herbs while running to the next patch to save inventory space.</p>
+                        </div>
+                        <div class="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                            <h4 class="font-bold text-purple-800 dark:text-purple-300 mb-1 flex items-center">🌱 Anima Seeds</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300">Plant an <strong>Attas</strong> seed at the Anima Patch (Farming Guild) for more yield, or <strong>Iasor</strong> for lower disease chance.</p>
+                        </div>
+                    </div>
+                `;
+                invContainer.innerHTML = tipsHTML;
                 document.getElementById('route-title').innerText = "Reference (Low to High)";
                 renderReference();
             } else {
@@ -402,12 +463,12 @@
                     
                     const listDiv = document.createElement('div');
                     listDiv.className = "bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 max-h-[500px] overflow-y-auto space-y-2";
-                    renderList(herbInventory, listDiv);
+                    renderList(generateHerbInventory(currentFarmingLevel), listDiv);
                     invContainer.appendChild(listDiv);
                     renderRoute(generateHerbRoute()); 
                 } else if (mode === 'tree') {
                     document.getElementById('prep-title').innerText = "Tree Inventory";
-                    document.getElementById('route-title').innerText = "Ultimate Tree Route";
+                    document.getElementById('route-title').innerText = "Hub-Optimized Route";
                     document.getElementById('herb-controls').classList.add('hidden');
                     
                     const p1List = generatePhase1(currentFarmingLevel);
@@ -415,7 +476,7 @@
 
                     const p1Label = document.createElement('h3');
                     p1Label.className = "font-bold text-gray-700 dark:text-gray-300 mb-1 mt-0 text-sm uppercase tracking-wide";
-                    p1Label.innerText = "Phase 1: Wood & Calquat & Special";
+                    p1Label.innerText = "Phase 1: Wood + Hubs + Calquat";
                     invContainer.appendChild(p1Label);
 
                     const list1Div = document.createElement('div');
@@ -423,15 +484,18 @@
                     renderList(p1List, list1Div);
                     invContainer.appendChild(list1Div);
 
-                    const p2Label = document.createElement('h3');
-                    p2Label.className = "font-bold text-gray-700 dark:text-gray-300 mb-1 mt-2 text-sm uppercase tracking-wide";
-                    p2Label.innerText = "Phase 2: Fruit & Hardwood & Special";
-                    invContainer.appendChild(p2Label);
+                    // Only show Phase 2 box if there are items (Level >= 27)
+                    if (p2List.length > 0) {
+                        const p2Label = document.createElement('h3');
+                        p2Label.className = "font-bold text-gray-700 dark:text-gray-300 mb-1 mt-2 text-sm uppercase tracking-wide";
+                        p2Label.innerText = "Phase 2: Remaining Fruit & Hardwood";
+                        invContainer.appendChild(p2Label);
 
-                    const list2Div = document.createElement('div');
-                    list2Div.className = "bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 space-y-2";
-                    renderList(p2List, list2Div);
-                    invContainer.appendChild(list2Div);
+                        const list2Div = document.createElement('div');
+                        list2Div.className = "bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 space-y-2";
+                        renderList(p2List, list2Div);
+                        invContainer.appendChild(list2Div);
+                    }
 
                     renderRoute(generateTreeRoute(currentFarmingLevel));
                 }
@@ -442,67 +506,80 @@
         // Generate Route Arrays based on Level
         function generateHerbRoute() {
             return [
-                { id: 1, location: "Troll Stronghold", teleport: "PoH Nexus -> Stony Basalt", type: "Disease Free", desc: "Roof patch." },
-                { id: 2, location: "Weiss", teleport: "PoH Nexus -> Icy Basalt", type: "Disease Free", desc: "Run west." },
-                { id: 3, location: "Farming Guild", teleport: "Jewelry Box", type: "High Yield", desc: "West wing." },
-                { id: 4, location: "Catherby", teleport: "PoH Nexus", type: "Standard", desc: "Run east." },
+                { id: 1, location: "Troll Stronghold", teleport: "PoH Nexus -> Stony Basalt", type: "Disease Free", desc: "Run to roof patch." },
+                { id: 2, location: "Weiss", teleport: "PoH Nexus -> Icy Basalt", type: "Disease Free", desc: "Run west to patch." },
+                { id: 3, location: "Farming Guild", teleport: "Jewelry Box -> Farming Guild", type: "High Yield", desc: "West wing (85+) or central." },
+                { id: 4, location: "Catherby", teleport: "PoH Nexus -> Catherby", type: "Standard", desc: "Run east." },
                 { id: 5, location: "North Ardougne", teleport: "Cloak", type: "Standard", desc: "Teleport to farm." },
-                { id: 6, location: "South Falador", teleport: "Ring", type: "Standard", desc: "Cabbage patch." },
+                { id: 6, location: "South Falador", teleport: "Ring", type: "Standard", desc: "Run NW from cabbage patch." },
                 { id: 7, location: "Port Phasmatys", teleport: "Ectophial", type: "Standard", desc: "Run west." },
-                { id: 8, location: "Hosidius", teleport: "Xeric's Talisman", type: "Disease Free", desc: "Glade." },
-                { id: 9, location: "Civitas illa Fortis", teleport: "Quetzal Whistle / PoH", type: "Standard", desc: "Varlamore patch." },
-                { id: 10, location: "Harmony Island", teleport: "Harmony Is. Teleport", type: "Disease Free (Elite)", desc: "Optional (Elite Diary)." }
+                { id: 8, location: "Hosidius", teleport: "Xeric's Talisman", type: "Disease Free", desc: "Run south from Glade." },
+                { id: 9, location: "Civitas illa Fortis", teleport: "Quetzal Whistle / PoH", type: "Standard", desc: "Run south-east." },
+                { id: 10, location: "Harmony Island", teleport: "Harmony Is. Teleport", type: "Disease Free (Elite)", desc: "Run south. Requires Elite Diary." }
             ];
         }
 
         function generateTreeRoute(level) {
             const r = [];
-            r.push({ header: "PHASE 1: Wood & Calquat & Crystal" });
-            r.push({ location: "Lumbridge", teleport: "PoH Nexus", type: "Wood", desc: "Behind castle." });
-            r.push({ location: "Varrock", teleport: "PoH Nexus", type: "Wood", desc: "Castle park." });
-            r.push({ location: "Falador", teleport: "PoH Nexus", type: "Wood", desc: "Park." });
-            r.push({ location: "Taverley", teleport: "Run North", type: "Wood", desc: "Near balloon." });
-            r.push({ location: "Gnome Stronghold", teleport: "Spirit Tree", type: "Wood", desc: "Near Spirit Tree." });
-            r.push({ location: "Farming Guild", teleport: "Jewelry Box", type: "Wood", desc: "Central." });
-            r.push({ location: "Auburnvale", teleport: "Varlamore Tele", type: "Wood", desc: "Varlamore patch." });
             
-            // Crystal Tree Check (Lvl 74)
-            if (level >= 74) {
-                r.push({ location: "Prifddinas", teleport: "Spirit Tree / Crystal", type: "Crystal", desc: "Trahaearn Sector." });
+            // --- PHASE 1 ---
+            // Only show Phase 1 if level >= 15 (Wood)
+            if (level >= 15) {
+                r.push({ header: "PHASE 1: Wood + Hubs + Calquat" });
+                r.push({ location: "Lumbridge", teleport: "PoH Nexus -> Lumbridge", type: "Wood", desc: "Run North to patch behind castle." });
+                r.push({ location: "Varrock", teleport: "PoH Nexus -> Varrock", type: "Wood", desc: "Run North to Castle park patch." });
+                r.push({ location: "Falador", teleport: "PoH Nexus -> Falador", type: "Wood", desc: "Run East to Falador Park." });
+                r.push({ location: "Taverley", teleport: "Run North from Falador", type: "Wood", desc: "Run North from Falador park." });
+                
+                // GNOME STRONGHOLD HUB
+                r.push({ location: "Gnome Stronghold (Wood)", teleport: "Spirit Tree", type: "Wood", desc: "Run SW from Spirit Tree." });
+                if (level >= 27) { // Check for Fruit level
+                    r.push({ location: "Gnome Stronghold (Fruit)", teleport: "Run East", type: "Fruit", desc: "Run East from Spirit Tree." });
+                }
+                
+                // FARMING GUILD HUB
+                r.push({ location: "Farming Guild (Wood)", teleport: "Jewelry Box", type: "Wood", desc: "Central patch." });
+                if (level >= 27) {
+                    r.push({ location: "Farming Guild (Fruit)", teleport: "Run", type: "Fruit", desc: "East Wing." });
+                }
+                if (level >= 85) {
+                    r.push({ location: "Farming Guild (Celastrus)", teleport: "Run", type: "Celastrus", desc: "West Wing." });
+                }
+                if (level >= 90) {
+                    r.push({ location: "Farming Guild (Redwood)", teleport: "Run", type: "Redwood", desc: "West Wing." });
+                }
+                
+                r.push({ location: "Auburnvale", teleport: "Varlamore Tele", type: "Wood", desc: "Run to patch." });
+                
+                if (level >= 74) {
+                    r.push({ location: "Prifddinas", teleport: "Spirit Tree / Crystal Tele", type: "Crystal", desc: "Trahaearn district (North)." });
+                }
+
+                if (level >= 72) {
+                    r.push({ location: "Tai Bwo Wannai", teleport: "Scroll/Spirit Tree", type: "Calquat", desc: "Run to patch." });
+                    r.push({ location: "Great Conch", teleport: "Fairy Ring (ALP) / Quetzal", type: "Calquat", desc: "Run slightly South-East." });
+                    r.push({ location: "Kastori", teleport: "Varlamore Tele (Quetzal 2)", type: "Calquat", desc: "Run to patch." });
+                }
             }
 
-            // Calquat (Lvl 72)
-            if (level >= 72) {
-                r.push({ location: "Tai Bwo Wannai", teleport: "Scroll/Spirit Tree", type: "Calquat", desc: "Standard patch." });
-                r.push({ location: "Great Conch", teleport: "Varlamore Tele", type: "Calquat", desc: "Varlamore patch." });
-                r.push({ location: "Kastori", teleport: "Varlamore Tele", type: "Calquat", desc: "Varlamore patch." });
-            }
+            // --- PHASE 2 ---
+            // Only show Phase 2 if level >= 27 (Fruit) OR 35 (Hardwood)
+            if (level >= 27) {
+                r.push({ header: "PHASE 2: Tools + Fruit/Hardwood" });
 
-            r.push({ header: "BANK STOP: Tools + Fruit/Hardwood/Special" });
+                r.push({ location: "Tree Gnome Village", teleport: "Spirit Tree -> Village", type: "Fruit", desc: "Follow Elkoy, squeeze fence, run SW." });
+                r.push({ location: "Brimhaven", teleport: "Spirit Tree -> Brimhaven", type: "Fruit", desc: "Run North/East to patch." });
+                r.push({ location: "Catherby", teleport: "PoH Nexus -> Catherby", type: "Fruit", desc: "Run East past bank to patch." });
+                r.push({ location: "Lletya", teleport: "Tele Crystal", type: "Fruit", desc: "Run East/Down." });
+                r.push({ location: "Kastori", teleport: "Varlamore Tele", type: "Fruit", desc: "Run to patch." });
 
-            r.push({ location: "Gnome Stronghold", teleport: "Spirit Tree", type: "Fruit", desc: "East of Spirit Tree." });
-            r.push({ location: "Tree Gnome Village", teleport: "Spirit Tree", type: "Fruit", desc: "Follow Elkoy." });
-            r.push({ location: "Brimhaven", teleport: "Spirit Tree", type: "Fruit", desc: "North." });
-            r.push({ location: "Catherby", teleport: "PoH Nexus", type: "Fruit", desc: "East." });
-            r.push({ location: "Lletya", teleport: "Tele Crystal", type: "Fruit", desc: "East." });
-            r.push({ location: "Farming Guild", teleport: "Jewelry Box", type: "Fruit", desc: "Palm patch." });
-            r.push({ location: "Kastori", teleport: "Varlamore Tele", type: "Fruit", desc: "Varlamore patch." });
-
-            // Specials
-            if (level >= 85) {
-                r.push({ location: "Farming Guild (Celastrus)", teleport: "Jewelry Box", type: "Celastrus", desc: "High Tier Wing." });
-            }
-            if (level >= 90) {
-                r.push({ location: "Farming Guild (Redwood)", teleport: "Jewelry Box", type: "Redwood", desc: "High Tier Wing." });
-            }
-
-            // Hardwood (Lvl 35)
-            if (level >= 35) {
-                r.push({ location: "Fossil Island (1)", teleport: "Digsite Pendant", type: "Hardwood", desc: "Verdant Valley." });
-                r.push({ location: "Fossil Island (2)", teleport: "Run Adjacent", type: "Hardwood", desc: "Verdant Valley." });
-                r.push({ location: "Fossil Island (3)", teleport: "Run Adjacent", type: "Hardwood", desc: "Verdant Valley." });
-                r.push({ location: "Avium Savannah", teleport: "Civitas/Quetzal", type: "Hardwood", desc: "Varlamore patch." });
-                r.push({ location: "Anglers' Retreat", teleport: "Varlamore Tele", type: "Hardwood", desc: "Varlamore patch." });
+                if (level >= 35) {
+                    r.push({ location: "Fossil Island (1)", teleport: "Digsite Pendant", type: "Hardwood", desc: "Magic Mushtree to Verdant Valley." });
+                    r.push({ location: "Fossil Island (2)", teleport: "Run Adjacent", type: "Hardwood", desc: "Magic Mushtree to Verdant Valley." });
+                    r.push({ location: "Fossil Island (3)", teleport: "Run Adjacent", type: "Hardwood", desc: "Magic Mushtree to Verdant Valley." });
+                    r.push({ location: "Avium Savannah", teleport: "Quetzal Whistle (Hunter Guild)", type: "Hardwood", desc: "Run South from Guild." });
+                    r.push({ location: "Anglers' Retreat", teleport: "Fairy Ring (AKP) / Whistle", type: "Hardwood", desc: "Run West from ring." });
+                }
             }
 
             return r;
@@ -573,7 +650,6 @@
                 div.className = "mb-8";
                 div.innerHTML = `<h3 class="text-xl font-bold text-[#3d5c25] dark:text-green-400 mb-2">${title}</h3>`;
                 
-                // SORT ASCENDING
                 const sortedData = [...data].sort((a,b) => a.lvl - b.lvl);
 
                 const table = document.createElement('table');
